@@ -1,0 +1,62 @@
+services:
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent
+    container_name: arr_qbittorrent
+
+    depends_on:
+      - gluetun
+
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+
+      - WEBUI_PORT=8080
+      - TORRENTING_PORT=58080
+
+    volumes:
+      - ${DOCKER_DATA}/arr/qbittorrent/config:/config
+      - ${DOCKER_ARR_POOL}:/pool
+
+    network_mode: service:gluetun
+
+    labels:
+      - traefik.enable=true
+
+      # Public (shared)
+      - traefik.http.routers.qbittorrent_arr_public_shared.service=qbittorrent_arr_public_shared
+      - traefik.http.services.qbittorrent_arr_public_shared.loadbalancer.server.port=8080
+      - traefik.http.routers.qbittorrent_arr_public_shared.entryPoints=websecure
+      - traefik.http.routers.qbittorrent_arr_public_shared.tls=true
+      - traefik.http.routers.qbittorrent_arr_public_shared.middlewares=auth,qbittorrent-redirect,qbittorrent-stripprefix
+      - traefik.http.routers.qbittorrent_arr_public_shared.rule=Host(`${SERVER_DOMAIN_PUBLIC}`) && PathPrefix(`/qbittorrent`)
+
+      #  Public (shared) middleware
+      - traefik.http.middlewares.qbittorrent-stripprefix.stripprefix.prefixes=/qbittorrent
+      - traefik.http.middlewares.qbittorrent-redirect.redirectregex.regex=^https:\/\/([^\/]+)\/qbittorrent$
+      - traefik.http.middlewares.qbittorrent-redirect.redirectregex.replacement=https://$${1}/qbittorrent/
+
+      # Public
+      - traefik.http.routers.qbittorrent_arr_public.service=qbittorrent_arr_public
+      - traefik.http.services.qbittorrent_arr_public.loadbalancer.server.port=8080
+      - traefik.http.routers.qbittorrent_arr_public.entryPoints=websecure
+      - traefik.http.routers.qbittorrent_arr_public.tls=true
+      - traefik.http.routers.qbittorrent_arr_public.middlewares=auth
+      - traefik.http.routers.qbittorrent_arr_public.rule=Host(`qbittorrent.${SERVER_DOMAIN_PUBLIC}`)
+
+      # Internal
+      - traefik.http.routers.qbittorrent_arr_internal.service=qbittorrent_arr_internal
+      - traefik.http.services.qbittorrent_arr_internal.loadbalancer.server.port=8080
+      - traefik.http.routers.qbittorrent_arr_internal.entryPoints=websecure
+      - traefik.http.routers.qbittorrent_arr_internal.tls=true
+      - traefik.http.routers.qbittorrent_arr_internal.middlewares=auth,allow-private-cidr
+      - traefik.http.routers.qbittorrent_arr_internal.rule=Host(`qbittorrent.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.qbittorrent_arr_localhost.service=qbittorrent_arr_localhost
+      - traefik.http.services.qbittorrent_arr_localhost.loadbalancer.server.port=8080
+      - traefik.http.routers.qbittorrent_arr_localhost.entrypoints=web
+      - traefik.http.routers.qbittorrent_arr_localhost.middlewares=allow-localhost
+      - traefik.http.routers.qbittorrent_arr_localhost.rule=Host(`qbittorrent.arr.docker.localhost`)
+
+    restart: unless-stopped

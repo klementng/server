@@ -1,0 +1,42 @@
+services:
+  morphos:
+    image: ghcr.io/danvergara/morphos-server:latest
+    hostname: morphos
+    container_name: app_010_morphos
+
+    networks:
+      - default
+    expose:
+      - 8080
+    volumes:
+      - ${DOCKER_DATA}/app/010/morphos/tmp:/tmp
+
+    labels:
+      - traefik.enable=true
+
+      # Public
+      - traefik.http.routers.morphos_app_public.service=morphos_app_public
+      - traefik.http.services.morphos_app_public.loadbalancer.server.port=8080
+      - traefik.http.routers.morphos_app_public.entrypoints=websecure
+      - traefik.http.routers.morphos_app_public.tls=true
+
+      - traefik.http.routers.morphos_app_public.rule=Host(`morphos.${SERVER_DOMAIN_PUBLIC}`)
+      - traefik.http.routers.morphos_app_public.middlewares=auth
+
+      # Internal
+      - traefik.http.routers.morphos_app_internal.service=morphos_app_internal
+      - traefik.http.services.morphos_app_internal.loadbalancer.server.port=8080
+      - traefik.http.routers.morphos_app_internal.entrypoints=websecure
+      - traefik.http.routers.morphos_app_internal.tls=true
+      - traefik.http.routers.morphos_app_internal.middlewares=auth,allow-private-cidr
+      - traefik.http.routers.morphos_app_internal.rule=Host(`morphos.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.morphos_app_localhost.service=morphos_app_localhost
+      - traefik.http.services.morphos_app_localhost.loadbalancer.server.port=8080
+      - traefik.http.routers.morphos_app_localhost.entrypoints=web
+
+      - traefik.http.routers.morphos_app_localhost.rule=Host(`morphos.app.docker.localhost`)
+      - traefik.http.routers.morphos_app_localhost.middlewares=allow-localhost
+
+    restart: unless-stopped

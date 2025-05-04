@@ -1,0 +1,47 @@
+services:
+  jellyseerr:
+    image: docker.io/fallenbagel/jellyseerr:latest
+    container_name: arr_jellyseerr
+    hostname: jellyseerr
+
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+
+    volumes:
+      - ${DOCKER_DATA}/arr/jellyseerr/app/config:/app/config
+      - ${DOCKER_ARR_POOL}:/pool
+
+    networks:
+      - default
+
+    expose:
+      - 5055/tcp
+
+    labels:
+      - traefik.enable=true
+
+      # Public
+      - traefik.http.routers.jellyseerr_arr_public.service=jellyseerr_arr_public
+      - traefik.http.services.jellyseerr_arr_public.loadbalancer.server.port=5055
+      - traefik.http.routers.jellyseerr_arr_public.entryPoints=websecure
+      - traefik.http.routers.jellyseerr_arr_public.tls=true
+      - traefik.http.routers.jellyseerr_arr_public.rule=Host(`jellyseerr.${SERVER_DOMAIN_PUBLIC}`)
+
+      # Internal
+      - traefik.http.routers.jellyseerr_arr_internal.service=jellyseerr_arr_internal
+      - traefik.http.services.jellyseerr_arr_internal.loadbalancer.server.port=8096
+      - traefik.http.routers.jellyseerr_arr_internal.entryPoints=websecure
+      - traefik.http.routers.jellyseerr_arr_internal.tls=true
+      - traefik.http.routers.jellyseerr_arr_internal.middlewares=allow-private-cidr
+      - traefik.http.routers.jellyseerr_arr_internal.rule=Host(`jellyseerr.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.jellyseerr_arr_localhost.service=jellyseerr_arr_localhost
+      - traefik.http.services.jellyseerr_arr_localhost.loadbalancer.server.port=8096
+      - traefik.http.routers.jellyseerr_arr_localhost.entrypoints=web
+      - traefik.http.routers.jellyseerr_arr_localhost.middlewares=allow-localhost
+      - traefik.http.routers.jellyseerr_arr_localhost.rule=Host(`jellyseerr.arr.docker.localhost`)
+
+    restart: unless-stopped

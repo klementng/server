@@ -1,0 +1,17 @@
+networks:
+  default:
+    name: docker-app
+    driver_opts:
+      com.docker.network.bridge.name: docker-app
+      com.docker.network.bridge.enable_icc: "false"
+    ipam:
+      driver: default
+
+include:
+  - ./app/001_vaultwarden.yaml
+  - ./app/003_stirling-pdf.yaml
+  - ./app/004_immich.yaml
+  - ./app/005_librespeed.yaml
+  - ./app/008_obsidian-livesync.yaml
+  - ./app/009_seafile.yaml
+  - ./app/010_morphos.yaml

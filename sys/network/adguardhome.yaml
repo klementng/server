@@ -1,0 +1,57 @@
+services:
+  adguardhome:
+    image: adguard/adguardhome
+    container_name: sys_adguardhome
+    hostname: adguardhome
+
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+
+    volumes:
+      - ${DOCKER_DATA}/sys/adguardhome/config:/config
+      - ${DOCKER_DATA}/sys/adguardhome/conf:/opt/adguardhome/conf
+      - ${DOCKER_DATA}/sys/adguardhome/work:/opt/adguardhome/work
+
+    networks:
+      - default
+
+    expose:
+      - 53/tcp # DNS
+      - 53/udp # DNS
+      - 80/tcp
+      - 853/tcp # DNS-OVER-TLS
+
+    ports:
+      - ${LAN_IP}:53:53/tcp # DOCKER block DNS if binded to 0.0.0.0
+      - ${LAN_IP}:53:53/udp
+      - ${LAN_IP}:853:853/tcp
+      - ${LAN_IP}:853:853/udp
+
+      - 127.0.0.1:53:53/tcp
+      - 127.0.0.1:53:53/udp
+      - 127.0.0.1:853:853/tcp
+      - 127.0.0.1:853:853/udp
+
+    labels:
+      - com.centurylinklabs.watchtower.monitor-only=true
+
+      - traefik.enable=true
+
+      # Internal
+      - traefik.http.routers.adguardhome_sys_internal.service=adguardhome_sys_internal
+      - traefik.http.services.adguardhome_sys_internal.loadbalancer.server.port=80
+      - traefik.http.routers.adguardhome_sys_internal.entryPoints=websecure
+      - traefik.http.routers.adguardhome_sys_internal.tls=true
+      - traefik.http.routers.adguardhome_sys_internal.middlewares=auth, allow-private-cidr
+      - traefik.http.routers.adguardhome_sys_internal.rule=Host(`adguardhome.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.adguardhome_sys_localhost.service=adguardhome_sys_localhost
+      - traefik.http.services.adguardhome_sys_localhost.loadbalancer.server.port=80
+      - traefik.http.routers.adguardhome_sys_localhost.entrypoints=web
+      - traefik.http.routers.adguardhome_sys_localhost.middlewares=allow-localhost
+      - traefik.http.routers.adguardhome_sys_localhost.rule=Host(`adguardhome.sys.docker.localhost`)
+
+    restart: always

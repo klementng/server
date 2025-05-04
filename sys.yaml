@@ -1,0 +1,28 @@
+networks:
+  default:
+    name: docker-sys
+
+    driver_opts:
+      com.docker.network.bridge.name: docker-sys
+      com.docker.network.bridge.enable_icc: "true"
+
+    ipam:
+      driver: default
+
+include:
+  - ./sys/backup/backup_fs.yaml
+  - ./sys/backup/duplicati.yaml
+  - ./sys/monitor/scrutiny.yaml
+  - ./sys/monitor/uptime-kuma.yaml
+  - ./sys/monitor/watchtower.yaml
+  - ./sys/monitor/glances.yaml
+  - ./sys/monitor/homepage.yaml
+  - ./sys/network/adguardhome.yaml
+  - ./sys/network/cloudflare-ddns.yaml
+  - ./sys/network/duckdns.yaml
+  - ./sys/network/gluetun.yaml
+  - ./sys/network/wg-easy.yaml
+  - ./sys/network/wstunnel.yaml
+  - ./sys/security/crowdsec.yaml
+  - ./sys/web/authelia.yaml
+  - ./sys/web/traefik.yaml

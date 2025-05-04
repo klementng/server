@@ -1,0 +1,41 @@
+services:
+  stirling-pdf:
+    image: frooodle/s-pdf:latest
+    hostname: stirling-pdf
+    container_name: app_003_stirling-pdf
+
+    environment:
+      - DOCKER_ENABLE_SECURITY=false
+
+    networks:
+      - default
+    expose:
+      - 8080
+
+    labels:
+      - traefik.enable=true
+
+      # Public
+      - traefik.http.routers.stirling-pdf_app_public.service=stirling-pdf_app_public
+      - traefik.http.services.stirling-pdf_app_public.loadbalancer.server.port=8080
+      - traefik.http.routers.stirling-pdf_app_public.entrypoints=websecure
+      - traefik.http.routers.stirling-pdf_app_public.tls=true
+      - traefik.http.routers.stirling-pdf_app_public.middlewares=auth
+      - traefik.http.routers.stirling-pdf_app_public.rule=Host(`pdf.${SERVER_DOMAIN_PUBLIC}`)
+
+      # Internal
+      - traefik.http.routers.stirling-pdf_app_internal.service=stirling-pdf_app_internal
+      - traefik.http.services.stirling-pdf_app_internal.loadbalancer.server.port=8080
+      - traefik.http.routers.stirling-pdf_app_internal.entrypoints=websecure
+      - traefik.http.routers.stirling-pdf_app_internal.tls=true
+      - traefik.http.routers.stirling-pdf_app_internal.middlewares=auth,allow-private-cidr
+      - traefik.http.routers.stirling-pdf_app_internal.rule=Host(`stirling-pdf.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.stirling-pdf_app_localhost.service=stirling-pdf_app_localhost
+      - traefik.http.services.stirling-pdf_app_localhost.loadbalancer.server.port=8080
+      - traefik.http.routers.stirling-pdf_app_localhost.entrypoints=web
+      - traefik.http.routers.stirling-pdf_app_localhost.middlewares=allow-localhost
+      - traefik.http.routers.stirling-pdf_app_localhost.rule=Host(`stirling-pdf.app.docker.localhost`)
+
+    restart: unless-stopped

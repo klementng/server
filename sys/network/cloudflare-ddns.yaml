@@ -1,0 +1,18 @@
+services:
+  cloudflare-ddns:
+    image: favonia/cloudflare-ddns:latest
+
+    container_name: sys_cloudflare-ddns
+    hostname: cloudflare-ddns
+
+    environment:
+      - TZ=${TZ}
+      - CF_API_TOKEN=${SERVICE_CLOUDFLARE_DNS_API_TOKEN}
+      - DOMAINS=${SERVER_DOMAIN_PUBLIC}, *.${SERVER_DOMAIN_PUBLIC}, auth.${SERVER_DOMAIN_PUBLIC}
+
+    networks:
+      - default
+
+    cap_drop: [all]
+
+    restart: unless-stopped

@@ -1,0 +1,27 @@
+networks:
+  default:
+    name: docker-arr
+    driver_opts:
+      com.docker.network.bridge.name: docker-arr
+    ipam:
+      driver: default
+
+include:
+  - ./arr/clients/audiobookshelf.yaml
+  - ./arr/clients/jellyfin.yaml
+  - ./arr/clients/jellyseerr.yaml
+  - ./arr/clients/miniserve.yaml
+  - ./arr/clients/searcharr.yaml
+  - ./arr/clients/suwayomi.yaml
+  - ./arr/core/cross-seed.yaml
+  - ./arr/core/prowlarr.yaml
+  - ./arr/core/qbitmanage.yaml
+  - ./arr/core/qbittorrent.yaml
+  - ./arr/core/radarr.yaml
+  - ./arr/core/recyclarr.yaml
+  - ./arr/core/sonarr.yaml
+  - ./arr/utils/dedup.yaml
+  - ./arr/utils/flaresolverr.yaml
+  - ./arr/utils/gluetun.yaml
+  - ./arr/utils/subextractor.yaml
+  - ./arr/utils/unpackerr.yaml

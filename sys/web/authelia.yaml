@@ -1,0 +1,53 @@
+services:
+  authelia:
+    image: authelia/authelia
+    container_name: sys_authelia
+
+    environment:
+      - TZ=${TZ}
+
+    volumes:
+      - ${DOCKER_DATA}/sys/authelia/config:/config
+
+    networks:
+      - default
+    expose:
+      - 9091
+    ports:
+      - 127.0.0.1:9091:9091
+
+    labels:
+      - traefik.enable=true
+
+      # Public
+      - traefik.http.routers.authelia_sys_public.service=authelia_sys_public
+      - traefik.http.services.authelia_sys_public.loadbalancer.server.port=9091
+      - traefik.http.routers.authelia_sys_public.entrypoints=websecure
+      - traefik.http.routers.authelia_sys_public.tls=true
+      - traefik.http.routers.authelia_sys_public.rule=Host(`auth.${SERVER_DOMAIN_PUBLIC}`)
+
+      # Internal
+      - traefik.http.routers.authelia_sys_internal.service=authelia_sys_internal
+      - traefik.http.services.authelia_sys_internal.loadbalancer.server.port=9091
+      - traefik.http.routers.authelia_sys_internal.entrypoints=websecure
+      - traefik.http.routers.authelia_sys_internal.tls=true
+      - traefik.http.routers.authelia_sys_internal.middlewares=allow-private-cidr
+      - traefik.http.routers.authelia_sys_internal.rule=Host(`authelia.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.authelia_sys_localhost.service=authelia_sys_localhost
+      - traefik.http.services.authelia_sys_localhost.loadbalancer.server.port=9091
+      - traefik.http.routers.authelia_sys_localhost.entrypoints=web
+      - traefik.http.routers.authelia_sys_localhost.middlewares=allow-localhost
+      - traefik.http.routers.authelia_sys_localhost.rule=Host(`authelia.sys.docker.localhost`)
+
+      # Middlewares for traefik auth
+      - traefik.http.middlewares.auth.forwardauth.address=http://127.0.0.1:9091/api/verify?rd=https://auth.${SERVER_DOMAIN_PUBLIC}
+      - traefik.http.middlewares.auth.forwardauth.trustForwardHeader=true
+      - traefik.http.middlewares.auth.forwardauth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email
+
+      - traefik.http.middlewares.auth-basic.forwardauth.address=http://127.0.0.1:9091/api/verify?auth=basic
+      - traefik.http.middlewares.auth-basic.forwardauth.trustForwardHeader=true
+      - traefik.http.middlewares.auth-basic.forwardauth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email, Set-Cookie
+
+    restart: unless-stopped

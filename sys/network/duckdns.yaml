@@ -1,0 +1,18 @@
+services:
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    container_name: sys_duckdns
+    hostname: duckdns
+
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+
+      - SUBDOMAINS=${SERVICE_DUCKDNS_SUBDOMAINS}
+      - TOKEN=${SERVICE_DUCKDNS_TOKEN}
+
+    networks:
+      - default
+
+    restart: unless-stopped

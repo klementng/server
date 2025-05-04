@@ -1,0 +1,43 @@
+services:
+  glances:
+    image: nicolargo/glances:latest-full
+
+    container_name: sys_glances
+    hostname: glances
+
+    pid: host
+    userns_mode: host
+    # network_mode: host
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/os-release:/etc/os-release:ro
+      - /mnt/:/mnt/:ro
+    devices:
+      - /dev/md5
+      - /dev/md1
+      - /dev/nvme0n1p2
+
+    expose:
+      - 61208
+    environment:
+      - "GLANCES_OPT=-w --port 61208"
+
+    restart: always
+    labels:
+      - traefik.enable=true
+
+      # Internal
+      - traefik.http.routers.glances_sys_internal.service=glances_sys_internal
+      - traefik.http.services.glances_sys_internal.loadbalancer.server.port=61208
+      - traefik.http.routers.glances_sys_internal.entryPoints=websecure
+      - traefik.http.routers.glances_sys_internal.tls=true
+      - traefik.http.routers.glances_sys_internal.rule=Host(`glances.${SERVER_DOMAIN_INTERNAL}`)
+      - traefik.http.routers.glances_sys_internal.middlewares=auth, allow-private-cidr
+
+      # Localhost
+      - traefik.http.routers.glances_sys_localhost.service=glances_sys_localhost
+      - traefik.http.services.glances_sys_localhost.loadbalancer.server.port=61208
+      - traefik.http.routers.glances_sys_localhost.entrypoints=web
+      - traefik.http.routers.glances_sys_localhost.rule=Host(`glances.sys.docker.localhost`)
+      - traefik.http.routers.glances_sys_localhost.middlewares=allow-localhost

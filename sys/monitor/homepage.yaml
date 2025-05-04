@@ -1,0 +1,61 @@
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: sys_monitor_homepage
+    hostname: homepage
+
+    userns_mode: host
+
+    environment:
+      - HOMEPAGE_ALLOWED_HOSTS=*
+      - PUID=${UID}
+      - PGID=${GID}
+      - TZ=${TZ}
+
+    network_mode: host
+    dns:
+      - 127.0.0.1
+
+    expose:
+      - 3000
+
+    volumes:
+      - ${DOCKER_DATA}/sys/homepage/config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /mnt/:/mnt/:ro
+
+    labels:
+      - traefik.enable=true
+
+      # Public (shared)
+      - traefik.http.routers.homepage_arr_public_shared.service=homepage_arr_public_shared
+      - traefik.http.services.homepage_arr_public_shared.loadbalancer.server.port=3000
+      - traefik.http.routers.homepage_arr_public_shared.entryPoints=websecure
+      - traefik.http.routers.homepage_arr_public_shared.tls=true
+      - traefik.http.routers.homepage_arr_public_shared.middlewares=auth
+      - traefik.http.routers.homepage_arr_public_shared.rule=Host(`${SERVER_DOMAIN_PUBLIC}`)
+
+      # Public
+      - traefik.http.routers.homepage_arr_public.service=homepage_arr_public
+      - traefik.http.services.homepage_arr_public.loadbalancer.server.port=3000
+      - traefik.http.routers.homepage_arr_public.entryPoints=websecure
+      - traefik.http.routers.homepage_arr_public.tls=true
+      - traefik.http.routers.homepage_arr_public.middlewares=auth
+      - traefik.http.routers.homepage_arr_public.rule=Host(`homepage.${SERVER_DOMAIN_PUBLIC}`)
+
+      # Internal
+      - traefik.http.routers.homepage_sys_internal.service=homepage_sys_internal
+      - traefik.http.services.homepage_sys_internal.loadbalancer.server.port=3000
+      - traefik.http.routers.homepage_sys_internal.entryPoints=websecure
+      - traefik.http.routers.homepage_sys_internal.tls=true
+      - traefik.http.routers.homepage_sys_internal.middlewares=auth, allow-private-cidr
+      - traefik.http.routers.homepage_sys_internal.rule=Host(`homepage.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.homepage_sys_localhost.service=homepage_sys_localhost
+      - traefik.http.services.homepage_sys_localhost.loadbalancer.server.port=3000
+      - traefik.http.routers.homepage_sys_localhost.entrypoints=web
+      - traefik.http.routers.homepage_sys_localhost.middlewares=allow-localhost
+      - traefik.http.routers.homepage_sys_localhost.rule=Host(`homepage.sys.docker.localhost`)
+
+    restart: unless-stopped

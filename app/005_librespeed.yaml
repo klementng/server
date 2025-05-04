@@ -1,0 +1,41 @@
+services:
+  librespeed:
+    image: ghcr.io/librespeed/speedtest:5.3
+    container_name: app_005_librespeed
+    hostname: librespeed
+
+    environment:
+      - MODE=standalone
+
+    networks:
+      - default
+    expose:
+      - 80
+
+    labels:
+      - traefik.enable=true
+
+      # Public
+      - traefik.http.routers.librespeed_app_public.service=librespeed_app_public
+      - traefik.http.services.librespeed_app_public.loadbalancer.server.port=80
+      - traefik.http.routers.librespeed_app_public.entrypoints=websecure
+      - traefik.http.routers.librespeed_app_public.tls=true
+      - traefik.http.routers.librespeed_app_public.middlewares=auth
+      - traefik.http.routers.librespeed_app_public.rule=Host(`speedtest.${SERVER_DOMAIN_PUBLIC}`)
+
+      # Internal
+      - traefik.http.routers.librespeed_app_internal.service=librespeed_app_internal
+      - traefik.http.services.librespeed_app_internal.loadbalancer.server.port=80
+      - traefik.http.routers.librespeed_app_internal.entrypoints=websecure
+      - traefik.http.routers.librespeed_app_internal.tls=true
+      - traefik.http.routers.librespeed_app_internal.middlewares=auth,allow-private-cidr
+      - traefik.http.routers.librespeed_app_internal.rule=Host(`librespeed.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.librespeed_app_localhost.service=librespeed_app_localhost
+      - traefik.http.services.librespeed_app_localhost.loadbalancer.server.port=80
+      - traefik.http.routers.librespeed_app_localhost.entrypoints=web
+      - traefik.http.routers.librespeed_app_localhost.middlewares=allow-localhost
+      - traefik.http.routers.librespeed_app_localhost.rule=Host(`librespeed.app.docker.localhost`)
+
+    restart: unless-stopped

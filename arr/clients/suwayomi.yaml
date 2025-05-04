@@ -1,0 +1,68 @@
+services:
+  suwayomi:
+    image: ghcr.io/suwayomi/tachidesk:preview
+    container_name: arr_suwayomi
+    hostname: suwayomi
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+
+      - DOWNLOAD_AS_CBZ=true
+      - AUTO_DOWNLOAD_CHAPTERS=true
+      - AUTO_DOWNLOAD_EXCLUDE_UNREAD=false
+
+      - UPDATE_EXCLUDE_UNREAD=false
+      - UPDATE_EXCLUDE_STARTED=false
+      - UPDATE_EXCLUDE_COMPLETED=false
+
+      - EXTENSION_REPOS=["https://github.com/keiyoushi/extensions/blob/repo/index.min.json"]
+
+      - FLARESOLVERR_ENABLED=true
+      - FLARESOLVERR_URL=http://flaresolverr:8191
+
+    volumes:
+      - ${DOCKER_ARR_POOL}/manga:/home/suwayomi/.local/share/Tachidesk/downloads/mangas
+      - ${DOCKER_DATA}/arr/suwayomi/config:/home/suwayomi/.local/share/Tachidesk
+      - ${DOCKER_ARR_POOL}/manga:/pool/manga
+
+    networks:
+      - default
+    expose:
+      - 4567
+
+    labels:
+      - traefik.enable=true
+
+      # Public
+      - traefik.http.routers.suwayomi_arr_public.service=suwayomi_arr_public
+      - traefik.http.services.suwayomi_arr_public.loadbalancer.server.port=4567
+      - traefik.http.routers.suwayomi_arr_public.entryPoints=websecure
+      - traefik.http.routers.suwayomi_arr_public.tls=true
+      - traefik.http.routers.suwayomi_arr_public.rule=Host(`suwayomi.${SERVER_DOMAIN_PUBLIC}`)
+      - traefik.http.routers.suwayomi_arr_public.middlewares=auth
+
+      # Public API
+      - traefik.http.routers.suwayomi_arr_public-api.service=suwayomi_arr_public-api
+      - traefik.http.services.suwayomi_arr_public-api.loadbalancer.server.port=4567
+      - traefik.http.routers.suwayomi_arr_public-api.entryPoints=websecure
+      - traefik.http.routers.suwayomi_arr_public-api.tls=true
+      - traefik.http.routers.suwayomi_arr_public-api.middlewares=auth-basic
+      - traefik.http.routers.suwayomi_arr_public-api.rule=Host(`suwayomi-api.${SERVER_DOMAIN_PUBLIC}`) && PathPrefix(`/api`)
+
+      # Internal
+      - traefik.http.routers.suwayomi_arr_internal.service=suwayomi_arr_internal
+      - traefik.http.services.suwayomi_arr_internal.loadbalancer.server.port=4567
+      - traefik.http.routers.suwayomi_arr_internal.entryPoints=websecure
+      - traefik.http.routers.suwayomi_arr_internal.tls=true
+      - traefik.http.routers.suwayomi_arr_internal.middlewares=auth, allow-private-cidr
+      - traefik.http.routers.suwayomi_arr_internal.rule=Host(`suwayomi.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.suwayomi_arr_localhost.service=suwayomi_arr_localhost
+      - traefik.http.services.suwayomi_arr_localhost.loadbalancer.server.port=4567
+      - traefik.http.routers.suwayomi_arr_localhost.entrypoints=web
+      - traefik.http.routers.suwayomi_arr_localhost.middlewares=allow-localhost
+      - traefik.http.routers.suwayomi_arr_localhost.rule=Host(`suwayomi.arr.docker.localhost`)
+
+    restart: unless-stopped

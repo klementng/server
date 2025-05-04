@@ -1,0 +1,69 @@
+services:
+  gluetun:
+    image: ghcr.io/qdm12/gluetun
+    hostname: gluetun
+    container_name: arr_gluetun
+
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+
+      - DNS_ADDRESS=127.0.0.1
+
+      - HTTPPROXY=on
+      - HTTPPROXY_STEALTH=on
+
+      - FIREWALL=on
+      - FIREWALL_VPN_INPUT_PORTS=58080
+      - VPN_INTERFACE=tun0
+
+      ### provider
+      - VPN_SERVICE_PROVIDER=airvpn
+      - OPENVPN_KEY=${SERVICE_AIRVPN_OPENVPN_ARR_KEY}
+      - OPENVPN_CERT=${SERVICE_AIRVPN_OPENVPN_ARR_CERT}
+      - SERVER_COUNTRIES=Singapore
+
+      # wireguard
+      # - VPN_SERVICE_PROVIDER=custom
+      # - VPN_TYPE=wireguard
+      # - WIREGUARD_IMPLEMENTATION=kernelspace
+      # - WIREGUARD_PRIVATE_KEY=
+      # - WIREGUARD_ADDRESSES=
+      # - WIREGUARD_PUBLIC_KEY=
+      # - VPN_ENDPOINT_IP=
+      # - VPN_ENDPOINT_PORT=
+
+      # openvpn
+      # - VPN_TYPE=openvpn
+      # - OPENVPN_CUSTOM_CONFIG=/ovpn/
+      # - OPENVPN_USER=
+      # - OPENVPN_PASSWORD=
+      - HEALTH_SERVER_ADDRESS=0.0.0.0:9999
+
+    cap_add:
+      - NET_ADMIN
+
+    devices:
+      - /dev/net/tun
+
+    networks:
+      default:
+        aliases:
+          - gluetun
+          - qbittorrent
+
+    volumes:
+      - ${DOCKER_DATA}/arr/gluetun/gluetun:/gluetun
+      - ${DOCKER_DATA}/arr/gluetun/ovpn:/ovpn
+
+    labels:
+      - com.centurylinklabs.watchtower.monitor-only=true
+
+      - traefik.enable=true
+      - traefik.http.routers.gluetun_arr_healthcheck_localhost.service=gluetun_arr_healthcheck_localhost
+      - traefik.http.services.gluetun_arr_healthcheck_localhost.loadbalancer.server.port=9999
+      - traefik.http.routers.gluetun_arr_healthcheck_localhost.entrypoints=web
+      - traefik.http.routers.gluetun_arr_healthcheck_localhost.rule=Host(`healthcheck.gluetun.arr.docker.localhost`)
+
+    restart: unless-stopped

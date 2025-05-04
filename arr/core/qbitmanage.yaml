@@ -1,0 +1,24 @@
+services:
+  qbitmanage:
+    image: bobokun/qbit_manage
+    hostname: qbitmanage
+    container_name: arr_qbitmanage
+
+    depends_on:
+      - qbittorrent
+
+    user: ${PUID}:${PGID}
+
+    environment:
+      - QBT_SCHEDULE=30
+      - QBT_STARTUP_DELAY=10
+
+    volumes:
+      - ${DOCKER_DATA}/arr/qbitmanage/config:/config
+      - ${DOCKER_DATA}/arr/qbittorrent/config/qBittorrent:/qbittorrent
+      - ${DOCKER_ARR_POOL}:/pool
+
+    networks:
+      - default
+
+    restart: unless-stopped

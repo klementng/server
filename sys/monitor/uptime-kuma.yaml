@@ -1,0 +1,62 @@
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: sys_uptime-kuma
+    hostname: uptime-kuma
+
+    userns_mode: host
+    environment:
+      - UPTIME_KUMA_DISABLE_FRAME_SAMEORIGIN=1
+      - UPTIME_KUMA_HOST=127.0.0.1
+      - UPTIME_KUMA_PORT=3001
+
+    volumes:
+      - ${DOCKER_DATA}/sys/uptime-kuma/data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    network_mode: host
+    # expose:
+    #   - 3001
+
+    labels:
+      - traefik.enable=true
+
+      # Public
+      - traefik.http.routers.uptime-kuma_sys_public.service=uptime-kuma_sys_public
+      - traefik.http.services.uptime-kuma_sys_public.loadbalancer.server.port=3001
+
+      - traefik.http.routers.uptime-kuma_sys_public.entryPoints=websecure
+      - traefik.http.routers.uptime-kuma_sys_public.tls=true
+
+      - traefik.http.routers.uptime-kuma_sys_public.rule=
+        (Host(`uptime.${SERVER_DOMAIN_PUBLIC}`) && PathPrefix(`/status/`)) ||
+        (Host(`uptime.${SERVER_DOMAIN_PUBLIC}`) && PathPrefix(`/assets/`)) ||
+        (Host(`uptime.${SERVER_DOMAIN_PUBLIC}`) && PathPrefix(`/icon.svg`))
+
+      - traefik.http.routers.uptime-kuma_sys_public.middlewares=auth
+
+      # Public API (no auth)
+      - traefik.http.routers.uptime-kuma-api_sys_public.service=uptime-kuma-api_sys_public
+      - traefik.http.services.uptime-kuma-api_sys_public.loadbalancer.server.port=3001
+
+      - traefik.http.routers.uptime-kuma-api_sys_public.entryPoints=websecure
+      - traefik.http.routers.uptime-kuma-api_sys_public.tls=true
+      - traefik.http.routers.uptime-kuma-api_sys_public.rule=
+        Host(`uptime.${SERVER_DOMAIN_PUBLIC}`) && PathPrefix(`/api/status-page/`)
+
+      # Internal
+      - traefik.http.routers.uptime-kuma_sys_internal.service=uptime-kuma_sys_internal
+      - traefik.http.services.uptime-kuma_sys_internal.loadbalancer.server.port=3001
+      - traefik.http.routers.uptime-kuma_sys_internal.entryPoints=websecure
+      - traefik.http.routers.uptime-kuma_sys_internal.tls=true
+      - traefik.http.routers.uptime-kuma_sys_internal.rule=Host(`uptime-kuma.${SERVER_DOMAIN_INTERNAL}`)
+      - traefik.http.routers.uptime-kuma_sys_internal.middlewares=auth,allow-private-cidr
+
+      # Localhost
+      - traefik.http.routers.uptime-kuma_sys_localhost.service=uptime-kuma_sys_localhost
+      - traefik.http.services.uptime-kuma_sys_localhost.loadbalancer.server.port=3001
+      - traefik.http.routers.uptime-kuma_sys_localhost.entrypoints=web
+      - traefik.http.routers.uptime-kuma_sys_localhost.rule=Host(`uptime-kuma.sys.docker.localhost`)
+      - traefik.http.routers.uptime-kuma_sys_localhost.middlewares=allow-localhost
+
+    restart: unless-stopped

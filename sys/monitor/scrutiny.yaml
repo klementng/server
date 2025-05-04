@@ -1,0 +1,48 @@
+services:
+  scrutiny:
+    image: ghcr.io/analogj/scrutiny:master-omnibus
+    container_name: sys_scrutiny
+    hostname: scrutiny
+
+    userns_mode: host
+    cap_add:
+      - SYS_RAWIO
+      - SYS_ADMIN
+
+    devices:
+      - /dev/nvme0
+      - /dev/sda
+      - /dev/sdb
+      - /dev/sdc
+      - /dev/sdd
+      - /dev/md1
+      - /dev/md5
+
+    volumes:
+      - /run/udev:/run/udev:ro
+      - ${DOCKER_DATA}/sys/scrutiny/config:/opt/scrutiny/config
+      - ${DOCKER_DATA}/sys/scrutiny/influxdb:/opt/scrutiny/influxdb
+
+    expose:
+      - 8080 # webapp
+      - 8086 # influxDB admin
+
+    labels:
+      - traefik.enable=true
+
+      # Internal
+      - traefik.http.routers.scrutiny_sys_internal.service=scrutiny_sys_internal
+      - traefik.http.services.scrutiny_sys_internal.loadbalancer.server.port=8080
+      - traefik.http.routers.scrutiny_sys_internal.entryPoints=websecure
+      - traefik.http.routers.scrutiny_sys_internal.tls=true
+      - traefik.http.routers.scrutiny_sys_internal.rule=Host(`scrutiny.${SERVER_DOMAIN_INTERNAL}`)
+      - traefik.http.routers.scrutiny_sys_internal.middlewares=auth, allow-private-cidr
+
+      # Localhost
+      - traefik.http.routers.scrutiny_sys_localhost.service=scrutiny_sys_localhost
+      - traefik.http.services.scrutiny_sys_localhost.loadbalancer.server.port=8080
+      - traefik.http.routers.scrutiny_sys_localhost.entrypoints=web
+      - traefik.http.routers.scrutiny_sys_localhost.rule=Host(`scrutiny.sys.docker.localhost`)
+      - traefik.http.routers.scrutiny_sys_localhost.middlewares=allow-localhost
+
+    restart: unless-stopped

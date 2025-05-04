@@ -1,0 +1,70 @@
+services:
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: arr_radarr
+    hostname: radarr
+
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+
+    volumes:
+      - ${DOCKER_DATA}/arr/radarr/config:/config
+      - ${DOCKER_ARR_POOL}:/pool
+
+    networks:
+      - default
+    expose:
+      - 7878
+
+    labels:
+      - traefik.enable=true
+
+      # Public (shared)
+      - traefik.http.routers.radarr_arr_public_shared.service=radarr_arr_public_shared
+      - traefik.http.services.radarr_arr_public_shared.loadbalancer.server.port=7878
+      - traefik.http.routers.radarr_arr_public_shared.entryPoints=websecure
+      - traefik.http.routers.radarr_arr_public_shared.tls=true
+      - traefik.http.routers.radarr_arr_public_shared.rule=Host(`${SERVER_DOMAIN_PUBLIC}`) && PathPrefix(`/radarr`)
+      - traefik.http.routers.radarr_arr_public_shared.middlewares=auth
+
+      # Public API (shared)
+      - traefik.http.routers.radarr-api_arr_public_shared.service=radarr-api_arr_public_shared
+      - traefik.http.services.radarr-api_arr_public_shared.loadbalancer.server.port=7878
+      - traefik.http.routers.radarr-api_arr_public_shared.entryPoints=websecure
+      - traefik.http.routers.radarr-api_arr_public_shared.tls=true
+      - traefik.http.routers.radarr-api_arr_public_shared.rule=Host(`${SERVER_DOMAIN_PUBLIC}`) && PathPrefix(`/radarr/api`)
+
+      # Public
+      - traefik.http.routers.radarr_arr_public.service=radarr_arr_public
+      - traefik.http.services.radarr_arr_public.loadbalancer.server.port=7878
+      - traefik.http.routers.radarr_arr_public.entryPoints=websecure
+      - traefik.http.routers.radarr_arr_public.tls=true
+      - traefik.http.routers.radarr_arr_public.rule=Host(`radarr.${SERVER_DOMAIN_PUBLIC}`)
+      - traefik.http.routers.radarr_arr_public.middlewares=auth
+
+      # Public API
+      - traefik.http.routers.radarr-api_arr_public.service=radarr-api_arr_public
+      - traefik.http.services.radarr-api_arr_public.loadbalancer.server.port=7878
+      - traefik.http.routers.radarr-api_arr_public.entryPoints=websecure
+      - traefik.http.routers.radarr-api_arr_public.tls=true
+      - traefik.http.routers.radarr-api_arr_public.rule=Host(`radarr.${SERVER_DOMAIN_PUBLIC}`) && PathPrefix(`/radarr/api`)
+      - traefik.http.routers.radarr-api_arr_public.priority=9999
+
+      # Internal
+      - traefik.http.routers.radarr_arr_internal.service=radarr_arr_internal
+      - traefik.http.services.radarr_arr_internal.loadbalancer.server.port=7878
+      - traefik.http.routers.radarr_arr_internal.entryPoints=websecure
+      - traefik.http.routers.radarr_arr_internal.tls=true
+      - traefik.http.routers.radarr_arr_internal.middlewares=auth, allow-private-cidr
+      - traefik.http.routers.radarr_arr_internal.rule=Host(`radarr.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.radarr_arr_localhost.service=radarr_arr_localhost
+      - traefik.http.services.radarr_arr_localhost.loadbalancer.server.port=7878
+      - traefik.http.routers.radarr_arr_localhost.entrypoints=web
+      - traefik.http.routers.radarr_arr_localhost.middlewares=allow-localhost
+      - traefik.http.routers.radarr_arr_localhost.rule=Host(`radarr.arr.docker.localhost`)
+
+    restart: unless-stopped

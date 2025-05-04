@@ -1,0 +1,26 @@
+services:
+  backup_fs:
+    build:
+      context: ./build/backup_fs
+    pull_policy: never
+
+    hostname: backup_fs
+    container_name: sys_backup_fs
+
+    userns_mode: host
+
+    environment:
+      - TZ=${TZ}
+      - PUID=0
+      - PGID=0
+
+      - CRON_SCHEDULE=4 15 * * *
+      - CRON_COMMAND=rsync -axHAX --numeric-ids --delete --exclude=/swap.img --exclude=/proc --exclude=/tmp --exclude=/mnt --exclude=/dev --exclude=/sys --exclude=/run --exclude=/media --exclude=/var/log --exclude=/.snapshots --exclude=/var/cache/apt/archives --exclude=/usr/src/linux-headers* --exclude=/home/*/.gvfs --exclude=/home/*/.cache --exclude=/home/*/.local/share/Trash --exclude=/var/lib/docker --exclude=/lost+found /source/ /target
+
+    volumes:
+      - /:/source:ro
+      - /mnt/backups/root:/target
+
+    network_mode: none
+
+    restart: unless-stopped

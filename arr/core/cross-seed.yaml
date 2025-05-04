@@ -1,0 +1,24 @@
+services:
+  cross-seed:
+    image: docker.io/crossseed/cross-seed
+    hostname: cross-seed
+    container_name: arr_cross-seed
+
+    user: ${PUID}:${PGID}
+    command: daemon
+
+    environment:
+      - TZ=${TZ}
+
+    networks:
+      - default
+
+    volumes:
+      - ${DOCKER_DATA}/arr/cross-seed/cs:/config
+      - ${DOCKER_DATA}/arr/cross-seed/cs:/cs
+      - ${DOCKER_DATA}/arr/cross-seed/cross-seeds:/cross-seeds
+
+      - ${DOCKER_DATA}/arr/qbittorrent/config/qBittorrent/BT_backup:/torrents:ro
+      - ${DOCKER_ARR_POOL}:/pool
+
+    restart: unless-stopped

@@ -1,0 +1,102 @@
+# NOTES
+# 1) links are changed in seahub_setting to https for it to work properly
+# 2) SSO is configured in seahub_settings.py, https://www.authelia.com/integration/openid-connect/seafile/
+
+networks:
+  seafile:
+    internal: true
+
+services:
+  seafile:
+    image: seafileltd/seafile-mc:11.0-latest
+    hostname: seafile
+    container_name: app_009_seafile
+
+    depends_on:
+      - seafile_mysql
+      - seafile_memcached
+
+    environment:
+      - TZ=${TZ}
+      - TIME_ZONE=${TZ}
+
+      - DB_HOST=seafile_mysql
+      - DB_ROOT_PASSWD=db_dev
+
+      - NON_ROOT=false
+      - SEAFILE_ADMIN_EMAIL=${SERVER_ADMIN_EMAIL}
+      - SEAFILE_ADMIN_PASSWORD=${SERVER_ADMIN_PASSWORD}
+      - SEAFILE_SERVER_LETSENCRYPT=false # handled by traefik
+      - SEAFILE_SERVER_HOSTNAME=seafile.${SERVER_DOMAIN_PUBLIC} # specifies your host name if https is enabled.
+
+    devices:
+      - /dev/dri:/dev/dri
+
+    volumes:
+      - ${DOCKER_DATA}/app/009/seafile/shared:/shared
+      - ${DOCKER_STORAGE}/app/009/seafile/seafile-data:/shared/seafile/seafile-data # seafile-data need to be on same device
+
+    networks:
+      - default
+      - seafile
+
+    expose:
+      - 443
+      - 80
+
+    labels:
+      - traefik.enable=true
+
+      # Public
+      - traefik.http.routers.seafile_app_public.service=seafile_app_public
+      - traefik.http.services.seafile_app_public.loadbalancer.server.port=80
+      - traefik.http.routers.seafile_app_public.entrypoints=websecure
+      - traefik.http.routers.seafile_app_public.tls=true
+      - traefik.http.routers.seafile_app_public.rule=Host(`seafile.${SERVER_DOMAIN_PUBLIC}`)
+
+      # Internal
+      - traefik.http.routers.seafile_app_internal.service=seafile_app_internal
+      - traefik.http.services.seafile_app_internal.loadbalancer.server.port=80
+      - traefik.http.routers.seafile_app_internal.entrypoints=websecure
+      - traefik.http.routers.seafile_app_internal.tls=true
+      - traefik.http.routers.seafile_app_internal.middlewares=allow-private-cidr
+      - traefik.http.routers.seafile_app_internal.rule=Host(`seafile.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.seafile_app_localhost.service=seafile_app_localhost
+      - traefik.http.services.seafile_app_localhost.loadbalancer.server.port=80
+      - traefik.http.routers.seafile_app_localhost.entrypoints=web
+      - traefik.http.routers.seafile_app_localhost.rule=Host(`seafile.app.docker.localhost`)
+      - traefik.http.routers.seafile_app_localhost.middlewares=allow-localhost
+
+    restart: unless-stopped
+
+  seafile_mysql:
+    image: mariadb:10.11
+    hostname: seafile_mysql
+    container_name: app_009_seafile_mysql
+
+    environment:
+      - MYSQL_ROOT_PASSWORD=db_dev
+      - MYSQL_LOG_CONSOLE=true
+      - MARIADB_AUTO_UPGRADE=1
+
+    volumes:
+      - ${DOCKER_DATA}/app/009/mysql/data:/var/lib/mysql
+
+    networks:
+      - seafile
+
+    restart: unless-stopped
+
+  seafile_memcached:
+    image: memcached:1.6.18
+    hostname: seafile_memcached
+    container_name: app_009_seafile_memcached
+
+    entrypoint: memcached -m 256
+
+    networks:
+      - seafile
+
+    restart: unless-stopped

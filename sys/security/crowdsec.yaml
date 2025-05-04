@@ -1,0 +1,51 @@
+# notes:
+# parsing in /config/acquis.yaml
+# changing ban profile: https://docs.crowdsec.net/u/getting_started/post_installation/profiles/ [/config/profiles.yaml]
+
+services:
+  crowdsec:
+    image: ghcr.io/klementng/docker-crowdsec:main
+    hostname: crowdsec
+    container_name: sys_crowdsec
+
+    userns_mode: host
+    network_mode: host
+
+    cap_add:
+      - NET_ADMIN
+
+    environment:
+      - TZ=${TZ}
+      - GID=${GID}
+      - LOCAL_API_URL=http://127.0.0.1:45671
+
+    ports:
+      - 127.0.0.1:45671:45671
+      - 127.0.0.1:6060:6060
+
+    volumes:
+      - ${DOCKER_DATA}/sys/crowdsec/config:/etc/crowdsec
+      - ${DOCKER_DATA}/sys/crowdsec/data:/var/lib/crowdsec/data/
+
+      # Sources
+      - /var/log:/var/log
+      - /var/log/journal/:/var/log/journal/
+
+      - /run/systemd/journal/:/run/systemd/journal
+      - /var/run/docker.sock:/var/run/docker.sock
+
+      # Remote Logs
+      - ${DOCKER_DATA}/sys/traefik/logs:/logs/traefik:ro
+
+    labels:
+      - traefik.enable=true
+
+      # localhost
+      - traefik.http.routers.crowdsec_sys_localhost.service=crowdsec_sys_localhost
+      - traefik.http.services.crowdsec_sys_localhost.loadbalancer.server.port=45671
+      - traefik.http.routers.crowdsec_sys_localhost.entrypoints=web
+      - traefik.http.services.crowdsec_sys_localhost.loadBalancer.server.scheme=http
+      - traefik.http.routers.crowdsec_sys_localhost.middlewares=allow-localhost
+      - traefik.http.routers.crowdsec_sys_localhost.rule=Host(`crowdsec.sys.docker.localhost`)
+
+    restart: unless-stopped

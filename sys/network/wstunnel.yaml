@@ -1,0 +1,45 @@
+services:
+  wstunnel:
+    image: ghcr.io/erebe/wstunnel
+    container_name: sys_wstunnel
+
+    depends_on:
+      - wg-easy
+
+    user: ${PUID}:${PGID}
+    environment:
+      - TZ=${TZ}
+
+    command: /home/app/wstunnel server wss://0.0.0.0:8399 --restrict-to=127.0.0.1:51820 --restrict-http-upgrade-path-prefix ${SYS_WSTUNNEL_SECRET}
+
+    network_mode: service:wg-easy
+    # expose:
+    #   - 8399
+
+    labels:
+      - traefik.enable=true
+
+      # Public
+      - traefik.http.routers.wstunnel_sys_public.service=wstunnel_sys_public
+      - traefik.http.services.wstunnel_sys_public.loadbalancer.server.port=8399
+      - traefik.http.services.wstunnel_sys_public.loadBalancer.server.scheme=https
+      - traefik.http.routers.wstunnel_sys_public.entryPoints=websecure
+      - traefik.http.routers.wstunnel_sys_public.tls=true
+      - traefik.http.routers.wstunnel_sys_public.rule=Host(`wstunnel.${SERVER_DOMAIN_PUBLIC}`)
+
+      - traefik.http.routers.wstunnel_sys_internal.service=wstunnel_sys_internal
+      - traefik.http.services.wstunnel_sys_internal.loadbalancer.server.port=8399
+      - traefik.http.services.wstunnel_sys_internal.loadBalancer.server.scheme=https
+      - traefik.http.routers.wstunnel_sys_internal.entryPoints=websecure
+      - traefik.http.routers.wstunnel_sys_internal.tls=true
+      - traefik.http.routers.wstunnel_sys_internal.rule=Host(`wstunnel.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.wstunnel_sys_localhost.service=wstunnel_sys_localhost
+      - traefik.http.services.wstunnel_sys_localhost.loadbalancer.server.port=8399
+      - traefik.http.routers.wstunnel_sys_localhost.entrypoints=web
+      - traefik.http.services.wstunnel_sys_localhost.loadBalancer.server.scheme=http
+      - traefik.http.routers.wstunnel_sys_localhost.rule=Host(`wstunnel.sys.docker.localhost`)
+      - traefik.http.routers.wstunnel_sys_localhost.middlewares=allow-localhost
+
+    restart: always

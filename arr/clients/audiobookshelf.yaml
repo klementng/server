@@ -1,0 +1,50 @@
+services:
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    container_name: arr_audiobookshelf
+    hostname: audiobookshelf
+
+    user: ${PUID}:${PGID}
+
+    environment:
+      - TZ=${TZ}
+
+    volumes:
+      - ${DOCKER_DATA}/arr/audiobookshelf/config:/config
+      - ${DOCKER_DATA}/arr/audiobookshelf/metadata:/metadata
+
+      - ${DOCKER_ARR_POOL}/podcast:/podcasts
+      - ${DOCKER_ARR_POOL}/books:/books
+      - ${DOCKER_ARR_POOL}/manga:/manga
+
+    networks:
+      - default
+    expose:
+      - 80
+
+    labels:
+      - traefik.enable=true
+
+      # Public
+      - traefik.http.routers.audiobookshelf_arr_public.service=audiobookshelf_arr_public
+      - traefik.http.services.audiobookshelf_arr_public.loadbalancer.server.port=80
+      - traefik.http.routers.audiobookshelf_arr_public.entryPoints=websecure
+      - traefik.http.routers.audiobookshelf_arr_public.tls=true
+      - traefik.http.routers.audiobookshelf_arr_public.rule=Host(`audiobookshelf.${SERVER_DOMAIN_PUBLIC}`)
+
+      # Internal
+      - traefik.http.routers.audiobookshelf_arr_internal.service=audiobookshelf_arr_internal
+      - traefik.http.services.audiobookshelf_arr_internal.loadbalancer.server.port=80
+      - traefik.http.routers.audiobookshelf_arr_internal.entryPoints=websecure
+      - traefik.http.routers.audiobookshelf_arr_internal.tls=true
+      - traefik.http.routers.audiobookshelf_arr_internal.middlewares=auth, allow-private-cidr
+      - traefik.http.routers.audiobookshelf_arr_internal.rule=Host(`audiobookshelf.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.audiobookshelf_arr_localhost.service=audiobookshelf_arr_localhost
+      - traefik.http.services.audiobookshelf_arr_localhost.loadbalancer.server.port=80
+      - traefik.http.routers.audiobookshelf_arr_localhost.entrypoints=web
+      - traefik.http.routers.audiobookshelf_arr_localhost.middlewares=allow-localhost
+      - traefik.http.routers.audiobookshelf_arr_localhost.rule=Host(`audiobookshelf.arr.docker.localhost`)
+
+    restart: unless-stopped

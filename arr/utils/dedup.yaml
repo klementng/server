@@ -1,0 +1,20 @@
+services:
+  dedup:
+    image: ghcr.io/klementng/docker-dedup:latest
+
+    hostname: dedup
+    container_name: arr_dedup
+
+    environment:
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - CRON_SCHEDULE=13 3 * * *
+      - CRON_COMMAND=rdfind -makehardlinks true /pool
+
+    volumes:
+      - ${DOCKER_ARR_POOL}:/pool
+
+    network_mode: none
+
+    restart: unless-stopped

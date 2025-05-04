@@ -1,0 +1,100 @@
+networks:
+  immich:
+    internal: true
+
+services:
+  immich:
+    image: ghcr.io/imagegenius/immich:latest
+    hostname: immich
+    container_name: app_004_immich
+
+    depends_on:
+      - immich_redis
+      - immich_postgres
+
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+
+      - DB_HOSTNAME=immich_postgres
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_DATABASE_NAME=immich
+
+      - REDIS_HOSTNAME=immich_redis
+
+      - DISABLE_MACHINE_LEARNING=false
+      - MACHINE_LEARNING_WORKERS=1
+      - MACHINE_LEARNING_WORKER_TIMEOUT=120
+
+    devices:
+      - /dev/dri:/dev/dri # If using Intel QuickSync or VAAPI
+
+    volumes:
+      - ${DOCKER_DATA}/app/004/immich/config:/config
+      - ${DOCKER_STORAGE}/app/004/immich/photos:/photos
+
+    networks:
+      - default
+      - immich
+    expose:
+      - 8080
+
+    labels:
+      - traefik.enable=true
+
+      # Public
+      - traefik.http.routers.immich_app_public.service=immich_app_public
+      - traefik.http.services.immich_app_public.loadbalancer.server.port=8080
+      - traefik.http.routers.immich_app_public.entrypoints=websecure
+      - traefik.http.routers.immich_app_public.tls=true
+      - traefik.http.routers.immich_app_public.rule=Host(`immich.${SERVER_DOMAIN_PUBLIC}`)
+
+      # Internal
+      - traefik.http.routers.immich_app_internal.service=immich_app_internal
+      - traefik.http.services.immich_app_internal.loadbalancer.server.port=8080
+      - traefik.http.routers.immich_app_internal.entrypoints=websecure
+      - traefik.http.routers.immich_app_internal.tls=true
+      - traefik.http.routers.immich_app_internal.middlewares=auth,allow-private-cidr
+      - traefik.http.routers.immich_app_internal.rule=Host(`immich.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.immich_app_localhost.service=immich_app_localhost
+      - traefik.http.services.immich_app_localhost.loadbalancer.server.port=8080
+      - traefik.http.routers.immich_app_localhost.entrypoints=web
+      - traefik.http.routers.immich_app_localhost.rule=Host(`immich.app.docker.localhost`)
+      - traefik.http.routers.immich_app_localhost.middlewares=allow-localhost
+
+    restart: unless-stopped
+
+  immich_redis:
+    image: redis:6.2-alpine
+    hostname: immich_redis
+    container_name: app_004_immich_redis
+
+    volumes:
+      - ${DOCKER_DATA}/app/004/redis/data:/data
+
+    networks:
+      - immich
+
+    restart: unless-stopped
+
+  immich_postgres:
+    image: tensorchord/pgvecto-rs:pg14-v0.2.0
+    container_name: app_004_immich_postgres
+    hostname: immich_postgres
+
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=immich
+
+    volumes:
+      - ${DOCKER_DATA}/app/004/postgres/data:/var/lib/postgresql/data
+
+    networks:
+      - immich
+
+    restart: unless-stopped

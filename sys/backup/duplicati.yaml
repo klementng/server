@@ -1,0 +1,41 @@
+services:
+  duplicati:
+    image: duplicati/duplicati:latest
+    container_name: sys_duplicati
+    hostname: duplicati
+
+    userns_mode: host
+
+    environment:
+      - DUPLICATI__WEBSERVICE_PASSWORD=${SYS_DUPLICATI_WEBSERVICE_PASSWORD}
+      - DUPLICATI__WEBSERVICE_ALLOWED_HOSTNAMES=duplicati.${SERVER_DOMAIN_INTERNAL}
+
+    volumes:
+      - ${DOCKER_DATA}/sys/duplicati/data:/data
+      - /mnt/backups/duplicati:/backups
+      - /:/source:ro
+
+    networks:
+      - default
+    expose:
+      - 8200
+
+    labels:
+      - traefik.enable=true
+
+      # Public
+      - traefik.http.routers.duplicati_sys_internal.service=duplicati_sys_internal
+      - traefik.http.services.duplicati_sys_internal.loadbalancer.server.port=8200
+      - traefik.http.routers.duplicati_sys_internal.entryPoints=websecure
+      - traefik.http.routers.duplicati_sys_internal.tls=true
+      - traefik.http.routers.duplicati_sys_internal.middlewares=auth, allow-private-cidr
+      - traefik.http.routers.duplicati_sys_internal.rule=Host(`duplicati.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.duplicati_sys_localhost.service=duplicati_sys_localhost
+      - traefik.http.services.duplicati_sys_localhost.loadbalancer.server.port=8200
+      - traefik.http.routers.duplicati_sys_localhost.entrypoints=web
+      - traefik.http.routers.duplicati_sys_localhost.middlewares=allow-localhost
+      - traefik.http.routers.duplicati_sys_localhost.rule=Host(`duplicati.sys.docker.localhost`)
+
+    restart: unless-stopped

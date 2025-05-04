@@ -1,0 +1,16 @@
+services:
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr:latest
+    hostname: recyclarr
+    container_name: arr_recyclarr
+
+    user: ${PUID}:${PGID}
+    environment:
+      - TZ=${TZ}
+
+    volumes:
+      - ${DOCKER_DATA}/arr/recyclarr/config:/config
+    networks:
+      - default
+
+    restart: unless-stopped

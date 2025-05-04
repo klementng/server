@@ -1,0 +1,88 @@
+services:
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: sys_gluetun
+    hostname: gluetun
+
+    cap_add:
+      - NET_ADMIN
+
+    devices:
+      - /dev/net/tun
+
+    environment:
+      - TZ=${TZ}
+      - PGID=${PUID}
+      - PUID=${PGID}
+
+      - DOT=on
+
+      - HTTPPROXY=on
+      - HTTPPROXY_LOG=on
+      - HTTPPROXY_LISTENING_ADDRESS=:8488
+      - HTTPPROXY_USER=gluetun
+      - HTTPPROXY_PASSWORD=${SYS_GLUETUN_PASSWORD}
+      - HTTPPROXY_STEALTH=on
+
+      - SHADOWSOCKS=on
+      - SHADOWSOCKS_LOG=on
+      - SHADOWSOCKS_LISTENING_ADDRESS=:8388
+      - SHADOWSOCKS_PASSWORD=${SYS_GLUETUN_PASSWORD}
+      - SHADOWSOCKS_CIPHER=chacha20-ietf-poly1305
+
+      - FIREWALL=on
+      - FIREWALL_VPN_INPUT_PORTS=8388,8488
+      - FIREWALL_OUTBOUND_SUBNETS=${LAN_IP}/32
+      - HEALTH_SERVER_ADDRESS=0.0.0.0:9999
+
+      - VPN_INTERFACE=tun0
+
+      #### AIRVPN
+      - VPN_SERVICE_PROVIDER=airvpn
+      - OPENVPN_KEY=${SERVICE_AIRVPN_OPENVPN_SYS_KEY}
+      - OPENVPN_CERT=${SERVICE_AIRVPN_OPENVPN_SYS_CERT}
+      - SERVER_COUNTRIES=Singapore
+
+      # wireguard
+      # - VPN_SERVICE_PROVIDER=custom
+      # - VPN_TYPE=wireguard
+      # - WIREGUARD_IMPLEMENTATION=kernelspace
+      # - WIREGUARD_PRIVATE_KEY=
+      # - WIREGUARD_ADDRESSES=
+      # - WIREGUARD_PUBLIC_KEY=
+      # - VPN_ENDPOINT_IP=
+      # - VPN_ENDPOINT_PORT=
+
+      # openvpn
+      # - VPN_TYPE=openvpn
+      # - OPENVPN_CUSTOM_CONFIG=/ovpn/
+      # - OPENVPN_USER=
+      # - OPENVPN_PASSWORD=
+
+    volumes:
+      - ${DOCKER_DATA}/sys/gluetun/gluetun:/gluetun
+      # - ${DOCKER_DATA}/sys/gluetun/iptables:/iptables
+      # - ${DOCKER_DATA}/sys/gluetun/ovpn:/ovpn
+
+    networks:
+      default:
+
+    expose:
+      - 8888 # http proxy
+      - 8388 # shadowsocks
+      - 9999 # healthcheck
+
+    ports:
+      - 0.0.0.0:8388:8388
+      - 0.0.0.0:8888:8488
+
+    labels:
+      - com.centurylinklabs.watchtower.monitor-only=true
+
+      - traefik.enable=true
+      - traefik.http.routers.gluetun_sys_healthcheck_localhost.service=gluetun_sys_healthcheck_localhost
+      - traefik.http.services.gluetun_sys_healthcheck_localhost.loadbalancer.server.port=9999
+      - traefik.http.routers.gluetun_sys_healthcheck_localhost.rule=Host(`healthcheck.gluetun.sys.docker.localhost`)
+      - traefik.http.routers.gluetun_sys_healthcheck_localhost.entrypoints=web
+
+    restart: always

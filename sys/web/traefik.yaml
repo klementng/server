@@ -1,0 +1,156 @@
+networks:
+  traefik:
+    internal: true
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: sys_traefik
+    hostname: traefik
+
+    userns_mode: host
+    command:
+      - --api.insecure=true
+
+      - --providers.docker
+      - --providers.file.directory=/dynamic
+      - --providers.docker.exposedbydefault=false
+
+      - --entryPoints.web.address=:80
+      - --entryPoints.websecure.address=:443
+      - --entryPoints.websecure.http.middlewares=crowdsec
+      - --entryPoints.traefik.address=127.0.0.1:8080
+      - --entryPoints.tcp.address=:8000
+
+      - --log.level=INFO
+
+      - --accessLog.filePath=/logs/access.log
+      - --accesslog.fields.names.StartUTC=drop
+      - --accessLog.bufferingSize=100
+
+      - --certificatesResolvers.duckdns.acme.email=${SERVICE_DUCKDNS_EMAIL}
+      - --certificatesResolvers.duckdns.acme.storage=/certs/duckdns.json
+      - --certificatesResolvers.duckdns.acme.dnsChallenge.provider=duckdns
+      - --certificatesResolvers.duckdns.acme.dnsChallenge.disablePropagationCheck=false
+      - --certificatesResolvers.duckdns.acme.dnsChallenge.delayBeforeCheck=30
+      - --certificatesResolvers.duckdns.acme.dnsChallenge.resolvers=1.1.1.1:53,8.8.8.8:53
+
+      - --certificatesResolvers.cloudflare.acme.email=${SERVICE_CLOUDFLARE_EMAIL}
+      - --certificatesResolvers.cloudflare.acme.storage=/certs/cloudfare.json
+      - --certificatesResolvers.cloudflare.acme.dnsChallenge.provider=cloudflare
+      - --certificatesResolvers.cloudflare.acme.dnsChallenge.disablePropagationCheck=false
+      - --certificatesResolvers.cloudflare.acme.dnsChallenge.delayBeforeCheck=30
+      - --certificatesResolvers.cloudflare.acme.dnsChallenge.resolvers=1.1.1.1:53,8.8.8.8:53
+
+      - --experimental.plugins.bouncer.modulename=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+      - --experimental.plugins.bouncer.version=v1.4.1
+
+      - --serverstransport.insecureskipverify=true
+
+    environment:
+      - DUCKDNS_TOKEN=${SERVICE_DUCKDNS_TOKEN}
+      - CLOUDFLARE_EMAIL=${SERVICE_CLOUDFLARE_EMAIL}
+      - CLOUDFLARE_API_KEY=${SERVICE_CLOUDFLARE_GLOBAL_API_KEY}
+      - TZ=${TZ}
+
+    network_mode: host
+    # expose:
+    #   - 80
+    #   - 443
+    #   - 8080
+    ports:
+      - 0.0.0.0:80:80
+      - 0.0.0.0:443:443
+      - 127.0.0.1:8080:8080
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DOCKER_DATA}/sys/traefik/logs:/logs
+      - ${DOCKER_DATA}/sys/traefik/certs:/certs
+      - ${DOCKER_DATA}/sys/traefik/dynamic:/dynamic
+      - ${DOCKER_DATA}/sys/traefik/plugins:/plugins
+
+    labels:
+      - traefik.enable=true
+
+      # Redirect to HTTPS
+      - traefik.http.middlewares.http_to_https.redirectscheme.scheme=https
+      - traefik.http.middlewares.http_to_https.redirectscheme.permanent=true
+
+      - traefik.http.routers.http_to_https.service=http_to_https
+      - traefik.http.routers.http_to_https.rule=HostRegexp(`.*`) && !HostRegexp(`\.localhost$`)
+      - traefik.http.routers.http_to_https.entrypoints=web
+      - traefik.http.routers.http_to_https.middlewares=http_to_https
+      - traefik.http.routers.http_to_https.priority=999999
+      - traefik.http.services.http_to_https.loadbalancer.server.port=443
+
+      # Certs
+      - traefik.http.routers.certs_duckdns.tls.certresolver=duckdns
+      - traefik.http.routers.certs_duckdns.tls.domains[0].main=${SERVER_DOMAIN_DUCKDNS}
+      - traefik.http.routers.certs_duckdns.tls.domains[0].sans=*.${SERVER_DOMAIN_DUCKDNS}
+
+      - traefik.http.routers.certs_duckdns.service=api@internal
+
+      # More certs
+      - traefik.http.routers.certs_cloudflare.tls.certresolver=cloudflare
+      - traefik.http.routers.certs_cloudflare.tls.domains[0].main=${SERVER_DOMAIN_PUBLIC}
+      - traefik.http.routers.certs_cloudflare.tls.domains[0].sans=*.${SERVER_DOMAIN_PUBLIC}
+
+      - traefik.http.routers.certs_cloudflare.tls.domains[1].main=${SERVER_DOMAIN_INTERNAL}
+      - traefik.http.routers.certs_cloudflare.tls.domains[1].sans=*.${SERVER_DOMAIN_INTERNAL}
+
+      - traefik.http.routers.certs_cloudflare.tls.domains[2].main=ente.${SERVER_DOMAIN_PUBLIC}
+      - traefik.http.routers.certs_cloudflare.tls.domains[2].sans=*.ente.${SERVER_DOMAIN_PUBLIC}
+
+      - traefik.http.routers.certs_cloudflare.service=api@internal
+
+      # Treafik Internal
+      - traefik.http.routers.traefik_sys_internal.service=traefik_sys_internal
+      - traefik.http.services.traefik_sys_internal.loadbalancer.server.port=8080
+      - traefik.http.routers.traefik_sys_internal.rule=Host(`traefik.${SERVER_DOMAIN_INTERNAL}`)
+      - traefik.http.routers.traefik_sys_internal.entrypoints=websecure
+      - traefik.http.routers.traefik_sys_internal.tls=true
+      - traefik.http.routers.traefik_sys_internal.middlewares=auth,allow-private-cidr
+
+      # Treafik localhost
+      - traefik.http.routers.traefik_sys_localhost.service=traefik_sys_localhost
+      - traefik.http.services.traefik_sys_localhost.loadbalancer.server.port=8080
+      - traefik.http.routers.traefik_sys_localhost.entrypoints=web
+
+      - traefik.http.routers.traefik_sys_localhost.rule=Host(`traefik.sys.docker.localhost`)
+      - traefik.http.routers.traefik_sys_localhost.middlewares=allow-localhost
+
+      # Shared Middleware
+      - traefik.http.middlewares.allow-private-cidr.ipallowlist.sourcerange=127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+      - traefik.http.middlewares.allow-localhost.ipallowlist.sourcerange=127.0.0.0/8
+
+      # Crowdsec plugin
+      - traefik.http.middlewares.crowdsec.plugin.bouncer.enabled=true
+      - traefik.http.middlewares.crowdsec.plugin.bouncer.crowdsecMode=stream
+      - traefik.http.middlewares.crowdsec.plugin.bouncer.crowdsecLapiKey=${SYS_TRAEFIK_CROWDSEC_PLUGIN_LAPI_KEY}
+      - traefik.http.middlewares.crowdsec.plugin.bouncer.crowdsecLapiScheme=http
+      - traefik.http.middlewares.crowdsec.plugin.bouncer.crowdsecLapiHost=crowdsec.sys.docker.localhost
+      - traefik.http.middlewares.crowdsec.plugin.bouncer.updateIntervalSeconds=10
+      - traefik.http.middlewares.crowdsec.plugin.bouncer.updateMaxFailure=-1
+      - traefik.http.middlewares.crowdsec.plugin.bouncer.clientTrustedIPs[0]=127.0.0.1
+
+      - traefik.http.middlewares.crowdsec.plugin.bouncer.captchaProvider=hcaptcha
+      - traefik.http.middlewares.crowdsec.plugin.bouncer.captchaSiteKey=${SERVICE_HCAPTCHA_SITEKEY}
+      - traefik.http.middlewares.crowdsec.plugin.bouncer.captchaSecretKey=${SERVICE_HCAPTCHA_SECRET}
+      - traefik.http.middlewares.crowdsec.plugin.bouncer.captchaGracePeriodSeconds=1800
+      - traefik.http.middlewares.crowdsec.plugin.bouncer.captchaHTMLFilePath=/plugins/crowdsec-bouncer/captcha.html
+
+      #duckdns redirect
+      - traefik.http.routers.duckdns-redirect.rule=HostRegexp(`.*${SERVER_DOMAIN_DUCKDNS}$`)
+      - traefik.http.routers.duckdns-redirect.entrypoints=websecure
+      - traefik.http.routers.duckdns-redirect.tls=true
+
+      - traefik.http.routers.duckdns-redirect.service=duckdns-redirect
+      - traefik.http.routers.duckdns-redirect.middlewares=duckdns-redirect
+
+      - traefik.http.services.duckdns-redirect.loadbalancer.server.port=8080
+      - traefik.http.middlewares.duckdns-redirect.redirectregex.regex=(.*)${SERVER_DOMAIN_DUCKDNS}(.*)
+      - traefik.http.middlewares.duckdns-redirect.redirectregex.replacement=$${1}${SERVER_DOMAIN_PUBLIC}$${2}
+      - traefik.http.middlewares.duckdns-redirect.redirectregex.permanent=true
+
+    restart: unless-stopped

@@ -1,0 +1,35 @@
+services:
+  subtitle-extract:
+    image: ghcr.io/klementng/subextractor
+    hostname: subextractor
+    container_name: arr_subextractor
+
+    user: ${PUID}:${PGID}
+    command: >-
+      full /media  
+      --log_level INFO 
+      --scan_interval 90
+      --exclude_mode e+a
+
+      --output_formats srt ass 
+      --languages eng
+      --exclude_videos /config/exclude-video.txt
+      --monitor
+      --threads 1
+
+      --postprocessing ./postprocess.yml 
+      --exclude_subtitles /config/exclude-subtitles.txt
+      --disable_bitmap_extraction
+
+    environment:
+      - TZ=${TZ}
+
+    volumes:
+      - ${DOCKER_DATA}/arr/subextractor/config:/config
+      - ${DOCKER_ARR_POOL}/anime:/media/anime
+      - ${DOCKER_ARR_POOL}/shows:/media/shows
+      - ${DOCKER_ARR_POOL}/movies:/media/movies
+
+    network_mode: none
+
+    restart: unless-stopped

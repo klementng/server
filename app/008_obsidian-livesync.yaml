@@ -1,0 +1,47 @@
+services:
+  obsidian-livesync:
+    image: docker.io/oleduc/docker-obsidian-livesync-couchdb:master
+    hostname: obsidian-livesync
+    container_name: app_008_obsidian-livesync
+
+    environment:
+      - SERVER_URL=obsidian-livesync.${SERVER_DOMAIN_PUBLIC}
+      - COUCHDB_USER=${APP_008_OBSIDIAN_LIVESYNC_USER}
+      - COUCHDB_PASSWORD=${APP_008_OBSIDIAN_LIVESYNC_PASSWORD}
+      - COUCHDB_DATABASE=obsidian
+
+    volumes:
+      - ${DOCKER_DATA}/app/008/obsidian-livesync/data:/opt/couchdb/data
+
+    networks:
+      - default
+    expose:
+      - 5984
+
+    labels:
+      - traefik.enable=true
+
+      # Public
+      - traefik.http.routers.obsidian-livesync_app_public.service=obsidian-livesync_app_public
+      - traefik.http.services.obsidian-livesync_app_public.loadbalancer.server.port=5984
+      - traefik.http.routers.obsidian-livesync_app_public.entrypoints=websecure
+      - traefik.http.routers.obsidian-livesync_app_public.tls=true
+      - traefik.http.routers.obsidian-livesync_app_public.rule=Host(`obsidian-livesync.${SERVER_DOMAIN_PUBLIC}`)
+
+      # Internal
+      - traefik.http.routers.obsidian-livesync_app_internal.service=obsidian-livesync_app_internal
+      - traefik.http.services.obsidian-livesync_app_internal.loadbalancer.server.port=5984
+      - traefik.http.routers.obsidian-livesync_app_internal.entrypoints=websecure
+      - traefik.http.routers.obsidian-livesync_app_internal.tls=true
+      - traefik.http.routers.obsidian-livesync_app_internal.middlewares=allow-private-cidr
+      - traefik.http.routers.obsidian-livesync_app_internal.rule=Host(`obsidian-livesync.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.obsidian-livesync_app_localhost.service=obsidian-livesync_app_localhost
+      - traefik.http.services.obsidian-livesync_app_localhost.loadbalancer.server.port=5984
+      - traefik.http.services.obsidian-livesync_app_localhost.loadbalancer.server.port=5984
+      - traefik.http.routers.obsidian-livesync_app_localhost.entrypoints=web
+      - traefik.http.routers.obsidian-livesync_app_localhost.middlewares=allow-localhost
+      - traefik.http.routers.obsidian-livesync_app_localhost.rule=Host(`obsidian-livesync.app.docker.localhost`)
+
+    restart: unless-stopped

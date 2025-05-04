@@ -1,0 +1,39 @@
+services:
+  watchtower:
+    image: containrrr/watchtower
+    container_name: sys_watchtower
+    hostname: watchtower
+
+    userns_mode: host
+    environment:
+      - TZ=${TZ}
+      - WATCHTOWER_SCHEDULE= 0 30 4 * * *
+      - WATCHTOWER_LIFECYCLE_HOOKS=True
+      - WATCHTOWER_CLEANUP=false
+
+      - WATCHTOWER_NOTIFICATIONS=shoutrrr
+      - WATCHTOWER_NOTIFICATION_URL=smtp://${SERVER_SMTP_USERNAME}:${SERVER_SMTP_PASSWORD}@${SERVER_SMTP_HOST}:587/?from=${SERVER_SMTP_EMAIL}&to=${SERVER_SMTP_EMAIL}
+      - WATCHTOWER_HTTP_API_METRICS=True
+      - WATCHTOWER_HTTP_API_TOKEN=${SYS_WATCHTOWER_HTTP_API_TOKEN}
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+
+      # Internal
+      - traefik.http.routers.watchtower_sys_internal.service=watchtower_sys_internal
+      - traefik.http.services.watchtower_sys_internal.loadbalancer.server.port=8080
+      - traefik.http.routers.watchtower_sys_internal.entryPoints=websecure
+      - traefik.http.routers.watchtower_sys_internal.tls=true
+      - traefik.http.routers.watchtower_sys_internal.rule=Host(`watchtower.${SERVER_DOMAIN_INTERNAL}`)
+      - traefik.http.routers.watchtower_sys_internal.middlewares=auth,allow-private-cidr
+
+      # Localhost
+      - traefik.http.routers.watchtower_sys_localhost.service=watchtower_sys_localhost
+      - traefik.http.services.watchtower_sys_localhost.loadbalancer.server.port=8080
+      - traefik.http.routers.watchtower_sys_localhost.entrypoints=web
+      - traefik.http.routers.watchtower_sys_localhost.rule=Host(`watchtower.sys.docker.localhost`)
+      - traefik.http.routers.watchtower_sys_localhost.middlewares=allow-localhost

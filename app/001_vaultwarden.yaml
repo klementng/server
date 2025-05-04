@@ -1,0 +1,47 @@
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    hostname: vaultwarden
+    container_name: app_001_vaultwarden
+
+    environment:
+      - SMTP_HOST=${SERVER_SMTP_HOST}
+      - SMTP_FROM=${SERVER_SMTP_EMAIL}
+      - SMTP_FROM_NAME=vaultwarden
+      - SMTP_USERNAME=${SERVER_SMTP_EMAIL}
+      - SMTP_PASSWORD=${SERVER_SMTP_PASSWORD}
+
+    volumes:
+      - ${DOCKER_DATA}/app/001/vaultwarden/data:/data
+
+    networks:
+      - default
+    expose:
+      - 80
+
+    labels:
+      - traefik.enable=true
+
+      # Public
+      - traefik.http.routers.vaultwarden_app_public.service=vaultwarden_app_public
+      - traefik.http.services.vaultwarden_app_public.loadbalancer.server.port=80
+      - traefik.http.routers.vaultwarden_app_public.entrypoints=websecure
+      - traefik.http.routers.vaultwarden_app_public.tls=true
+      - traefik.http.routers.vaultwarden_app_public.rule=Host(`vaultwarden.${SERVER_DOMAIN_PUBLIC}`)
+
+      # Internal
+      - traefik.http.routers.vaultwarden_app_internal.service=vaultwarden_app_internal
+      - traefik.http.services.vaultwarden_app_internal.loadbalancer.server.port=80
+      - traefik.http.routers.vaultwarden_app_internal.entrypoints=websecure
+      - traefik.http.routers.vaultwarden_app_internal.tls=true
+      - traefik.http.routers.vaultwarden_app_internal.middlewares=auth,allow-private-cidr
+      - traefik.http.routers.vaultwarden_app_internal.rule=Host(`vaultwarden.${SERVER_DOMAIN_INTERNAL}`)
+
+      # Localhost
+      - traefik.http.routers.vaultwarden_app_localhost.service=vaultwarden_app_localhost
+      - traefik.http.services.vaultwarden_app_localhost.loadbalancer.server.port=80
+      - traefik.http.routers.vaultwarden_app_localhost.entrypoints=web
+      - traefik.http.routers.vaultwarden_app_localhost.middlewares=allow-localhost
+      - traefik.http.routers.vaultwarden_app_localhost.rule=Host(`vaultwarden.app.docker.localhost`)
+
+    restart: unless-stopped
